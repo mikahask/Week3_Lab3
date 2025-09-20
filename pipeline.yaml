@@ -6,13 +6,6 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'  # Use an Ubuntu build agent
 
-# Azure credentials as pipeline variables
-variables:
-  PKR_VAR_clientid: "d626d846-b593-47fa-9fce-8ec98ad5fb98"
-  PKR_VAR_clientsecret: "OM58Q~xkZ3tSqMQraV69lVnnt6WtM34o5tzwcaEL"
-  PKR_VAR_subscriptionid: "7aa21560-6c6a-4a76-b171-baf8a95fa6d3"
-  PKR_VAR_tenantid: "55f3251f-f354-438f-aece-357602ac8de8"
-
 stages:
 - stage: Build
   displayName: "Packer Build Stage"
