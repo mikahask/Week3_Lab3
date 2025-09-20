@@ -1,0 +1,88 @@
+# azure-pipelines.yml
+
+trigger:
+- main  # Trigger pipeline on commits to main branch
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+# Define your Azure credentials as pipeline variables
+variables:
+  PKR_VAR_clientid: "11111111-1111-1111-1111-111111111111"          # Replace with your Azure SP clientId
+  PKR_VAR_clientsecret: "your-client-secret-goes-here"             # Replace with your Azure SP clientSecret (mark as secret)
+  PKR_VAR_subscriptionid: "22222222-2222-2222-2222-222222222222"  # Replace with your Azure subscription ID
+  PKR_VAR_tenantid: "33333333-3333-3333-3333-333333333333"        # Replace with your Azure tenant ID
+  AZURE_CLIENT_ID: "11111111-1111-1111-1111-111111111111"          # Terraform/Ansible client ID
+  AZURE_SECRET: "your-client-secret-goes-here"                     # Terraform/Ansible secret
+  AZURE_SUBSCRIPTION_ID: "22222222-2222-2222-2222-222222222222"
+  AZURE_TENANT: "33333333-3333-3333-3333-333333333333"
+  AZURE_ACCESS_KEY: "your-storage-access-key"                      # Optional if needed by Terraform
+
+stages:
+- stage: Build
+  displayName: "Infrastructure Build Stage"
+  jobs:
+  - job: PackerTerraformAnsible
+    displayName: "Run Packer, Terraform, and Ansible"
+    steps:
+    - checkout: self
+
+    #### Packer Steps ####
+    - script: packer init $(Build.SourcesDirectory)/CHAP08/packer/.pkr.hcl
+      displayName: "Packer init"
+
+    - script: packer validate $(Build.SourcesDirectory)/CHAP08/packer/.pkr.hcl
+      displayName: "Packer validate template"
+
+    - script: packer build $(Build.SourcesDirectory)/CHAP08/packer/.pkr.hcl
+      displayName: "Packer build template"
+      env:
+        PKR_VAR_clientid: $(PKR_VAR_clientid)
+        PKR_VAR_clientsecret: $(PKR_VAR_clientsecret)
+        PKR_VAR_subscriptionid: $(PKR_VAR_subscriptionid)
+        PKR_VAR_tenantid: $(PKR_VAR_tenantid)
+
+    #### Terraform Steps ####
+    - script: terraform init --backend-config=backend.tfvars
+      displayName: "Terraform init"
+      workingDirectory: $(Build.SourcesDirectory)/CHAP08/terraform
+      env:
+        ARM_CLIENT_ID: $(AZURE_CLIENT_ID)
+        ARM_CLIENT_SECRET: $(AZURE_SECRET)
+        ARM_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
+        ARM_TENANT_ID: $(AZURE_TENANT)
+        ARM_ACCESS_KEY: $(AZURE_ACCESS_KEY)
+
+    - script: terraform plan
+      displayName: "Terraform plan"
+      workingDirectory: $(Build.SourcesDirectory)/CHAP08/terraform
+      env:
+        ARM_CLIENT_ID: $(AZURE_CLIENT_ID)
+        ARM_CLIENT_SECRET: $(AZURE_SECRET)
+        ARM_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
+        ARM_TENANT_ID: $(AZURE_TENANT)
+        ARM_ACCESS_KEY: $(AZURE_ACCESS_KEY)
+
+    - script: terraform apply -auto-approve
+      displayName: "Terraform apply"
+      workingDirectory: $(Build.SourcesDirectory)/CHAP08/terraform
+      env:
+        ARM_CLIENT_ID: $(AZURE_CLIENT_ID)
+        ARM_CLIENT_SECRET: $(AZURE_SECRET)
+        ARM_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
+        ARM_TENANT_ID: $(AZURE_TENANT)
+        ARM_ACCESS_KEY: $(AZURE_ACCESS_KEY)
+
+    #### Ansible Steps ####
+    - script: pip install ansible[azure]==2.8.6
+      displayName: "Get requirements"
+
+    - script: ansible-playbook playbookdemo.yml -i inv.azure_rm.yml
+      displayName: "Ansible playbook"
+      workingDirectory: $(Build.SourcesDirectory)/CHAP08/ansible
+      env:
+        AZURE_CLIENT_ID: $(AZURE_CLIENT_ID)
+        AZURE_SECRET: $(AZURE_SECRET)
+        AZURE_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
+        AZURE_TENANT: $(AZURE_TENANT)
+        ANSIBLE_HOST_KEY_CHECKING: False
